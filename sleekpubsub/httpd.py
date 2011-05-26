@@ -6,7 +6,7 @@ except ImportError:
 import sys
 
 import logging, base64, time, os, socket, re, datetime, signal, traceback
-
+from sleekxmpp.xmlstream import XMLStream, JID, tostring
 if sys.version_info < (3,0):
 	import urllib
 else:
@@ -418,7 +418,7 @@ class SubscribeHandler(RestHandler):
 	def do_GET(self, domain, controller, obj, args):
 		logging.debug("Handling subscription")
 		try:
-			self.app.pubsub.subscribeNode(obj, args['jid'], to=args.get('to'), who=self.app.jid)
+			self.app.pubsub.subscribeNode(obj, JID(args['jid']), to=args.get('to'), who=JID(self.app.jid))
 			logging.debug("Done, son")
 			return json.dumps({'error': False}), 'text/plain'
 		except:

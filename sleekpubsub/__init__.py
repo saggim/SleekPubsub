@@ -4,6 +4,8 @@ from sleekxmpp.xmlstream.matcher.stanzapath import StanzaPath
 from sleekxmpp.xmlstream.handler.callback import Callback
 from sleekxmpp.plugins import stanza_pubsub as Pubsub
 from sleekxmpp.exceptions import XMPPError
+from sleekxmpp.xmlstream import JID
+
 from xml.etree import cElementTree as ET
 import uuid
 from . db import PubsubDB
@@ -57,7 +59,7 @@ class NodeCache(object):
                 self[node].save()
     
     def addNode(self, name, klass, node=None):
-        print "Loading %s as %s" % (node, klass)
+        print ("Loading %s as %s" % (node, klass))
         self.allnodes[name] = klass
         if isinstance(node, BaseNode):
             self.cache.append(name)
@@ -92,6 +94,7 @@ class PublishSubscribe(object):
     
     def __init__(self, xmpp, dbfile, settings, rest, overridedefault=None):
         
+        print("at PublishSubscribe init")
         self.xmpp = xmpp
         self.dbfile = dbfile
         self.db = None
@@ -172,14 +175,17 @@ class PublishSubscribe(object):
         pfrom = pres['to'].user
         if pfrom: pfrom += "@"
         pfrom += self.xmpp.boundjid.full
+        print(pfrom+" got online!")
         self.xmpp.sendPresence(pto=pres['from'].bare, pfrom=pfrom)
 
     def handleGotOffline(self, pres):
+        print(pres['from'].full+" got online!")
         logging.debug("%s got offline." % pres['from'].full)
         for node in copy.copy(self.presence_expire.get(pres['from'].full, [])):
             r = self.unsubscribeNode(node, pres['from'].full)
             logging.debug("Unsubscribing %s from %s because they went offline: %s" % (pres['from'], node, r))
-        if self.presence_expire.has_key(pres['from'].full) and not self.presence_expire[pres['from'].full]:
+        ##if self.presence_expire.has_key(pres['from'].full) and not self.presence_expire[pres['from'].full]:
+        if pres['from'].full in self.presence_expire and not self.presence_expire[pres['from'].full]:
             del self.presence_expire[pres['from'].full]
     
     def handlePresenceSubscribe(self, pres):
@@ -428,24 +434,27 @@ class PublishSubscribe(object):
         self.xmpp.send(iq)
     
     def subscribeNode(self, node, jid, who=None, to=None):
-        print "subscribe node"
+        print("subscribe node")
+        print(type(jid))
         if node not in self.nodes:
             if self.config['settings']['node_creation'] == 'createonsubscribe':
                 self.createNode(node, config=None, who=who.full)
             else:
-                print "no create on subscribe"
+                print( "no create on subscribe")
                 return False
         if self.nodes[node].config.get('pubsub#expire') == 'presence':
-            print "presence expire"
-            if not self.xmpp.roster.has_key(jid.bare) or not self.xmpp.roster[jid.bare]['presence'].has_key(jid.resource):
-                print "could not subscribe to pubsub#expire", jid.full, self.xmpp.roster
+            print("presence expire")
+            ##if not self.xmpp.roster.has_key(jid.bare) or not self.xmpp.roster[jid.bare]['presence'].has_key(jid.resource):
+            if jid.bare not in self.xmpp.roster or jid.resource not in self.xmpp.roster[jid.bare]['presence']:
+                print("could not subscribe to pubsub#expire", jid.full, self.xmpp.roster)
+                print(self.xmpp.roster)
                 return False
             else:
-                print "subscribing"
+                print("subscribing")
                 if str(jid) not in self.presence_expire:
                     self.presence_expire[str(jid)] = []
                 self.presence_expire[str(jid)].append(node)
-                print self.presence_expire
+                print(self.presence_expire)
         if who is not None:
             who = who.full
         return self.nodes[node].subscribe(jid.full, who, to=to)
@@ -467,6 +476,7 @@ class PublishSubscribe(object):
         stanza.send()
     
     def handleUnsubscribe(self, stanza):
+        print("handle unsubscribe")
         xml = stanza.xml
         subscribe = xml.find('{http://jabber.org/protocol/pubsub}pubsub/{http://jabber.org/protocol/pubsub}unsubscribe')
         node = subscribe.get('node')
@@ -482,6 +492,7 @@ class PublishSubscribe(object):
         self.xmpp.send(iq)
     
     def unsubscribeNode(self, node, jid, who=None, subid=None):
+        print("unsubscribe node")
         if node in self.nodes:
             self.nodes[node].unsubscribe(jid, who, subid)
             if self.nodes[node].config.get('pubsub#expire') == 'presence':

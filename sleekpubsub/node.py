@@ -362,6 +362,8 @@ class BaseNode(object):
     
     def subscribe(self, jid, who=None, config=None, to=None):
         print ('user subscribing')
+        if self.pubsub.config['settings']['usebarejid']:
+            jid = self.xmpp.getjidbare(jid) 
         if (
             (who is None or self.xmpp.getjidbare(who) in self.affiliations['owner'] or who.startswith(jid)) and 
             (self.config['pubsub#access_model'] == 'open' or 
@@ -588,7 +590,7 @@ class BaseNode(object):
                 self.xmpp.send(msg)
         for parent in self.collections:
             if parent in self.pubsub.nodes:
-                self.pubsub.nodes[parent].notifyItem(event, jid)
+                self.pubsub.nodes[parent].notifyItem(event, filterjid)
     
     def notifyConfig(self):
         pass
